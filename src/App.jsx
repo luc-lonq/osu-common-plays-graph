@@ -100,7 +100,7 @@ export default function TopPlaysGraph3D() {
 
     return (
         <div className="w-full h-screen flex flex-col">
-            <div className="p-4 bg-gray-100 shadow-md flex items-center gap-2">
+            <div className="p-2 bg-gray-100 shadow-md flex items-center gap-2">
                 <label className="font-medium">Min top plays communs :</label>
                 <input
                     type="number"
@@ -110,7 +110,7 @@ export default function TopPlaysGraph3D() {
                     className="border px-2 py-1 rounded"
                 />
             </div>
-            <div className="p-4 bg-gray-100 shadow-md flex items-center gap-2">
+            <div className="p-2 bg-gray-100 shadow-md flex items-center gap-2">
                 <label className="font-medium">Focus on player :</label>
                 <input
                     type="text"
