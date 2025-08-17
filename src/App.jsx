@@ -3,36 +3,14 @@ import ForceGraph3D from "react-force-graph-3d";
 import playersData from "./data.json";
 import SpriteText from "three-spritetext";
 
-function normalizeMods(mods) {
-    if (!mods) return [];
-    return mods
-        .filter(
-            (m) => !["NF", "CL", "HD", "SO"].includes(m)
-        )
-        .map((m) => (m === "NC" ? "DT" : m))
-        .sort();
-}
-
-function modsEqual(modsA, modsB) {
-    if (modsA.length !== modsB.length) return false;
-    return modsA.every((m, i) => m === modsB[i]);
-}
 
 function countCommonPlays(a, b) {
-    return a.filter((playA) =>
-        b.some(
-            (playB) =>
-                playA.id === playB.id &&
-                modsEqual(
-                    normalizeMods(playA.mods || []),
-                    normalizeMods(playB.mods || [])
-                )
-        )
-    ).length;
+    const setA = new Set(a.map((play) => play.id));
+    return b.filter((play) => setA.has(play.id)).length;
 }
 
 export default function TopPlaysGraph3D() {
-    const [minCommon, setMinCommon] = useState(20);
+    const [minCommon, setMinCommon] = useState(50);
     const [hoveredNode, setHoveredNode] = useState(null);
     const [highlightedNodes, setHighlightedNodes] = useState(new Set());
     const [highlightedLinks, setHighlightedLinks] = useState(new Set());
@@ -87,20 +65,7 @@ export default function TopPlaysGraph3D() {
 
     const fgRef = useRef();
 
-
-
     const handleClick = useCallback(node => {
-        const distance = 200;
-        const distRatio = 1 + distance/Math.hypot(node.x, node.y, node.z);
-
-        fgRef.current.cameraPosition(
-            { x: node.x * distRatio, y: node.y * distRatio, z: node.z * distRatio }, // new position
-            node,
-            3000
-        );
-    }, [fgRef]);
-
-    const handleHover = useCallback((node) => {
         if (node) {
             setHoveredNode(node);
 
@@ -115,7 +80,23 @@ export default function TopPlaysGraph3D() {
                 setHighlightedLinks(new Set());
             }
         }
-    }, []);
+
+        const distance = 200;
+        const distRatio = 1 + distance/Math.hypot(node.x, node.y, node.z);
+
+        fgRef.current.cameraPosition(
+            { x: node.x * distRatio, y: node.y * distRatio, z: node.z * distRatio }, // new position
+            node,
+            3000
+        );
+    }, [fgRef]);
+
+    const focusOnNodeWithName = useCallback((name) => {
+        const node = graphData.nodes.find(n => n.name === name);
+        if (node) {
+            handleClick(node);
+        }
+    });
 
     return (
         <div className="w-full h-screen flex flex-col">
@@ -129,15 +110,29 @@ export default function TopPlaysGraph3D() {
                     className="border px-2 py-1 rounded"
                 />
             </div>
+            <div className="p-4 bg-gray-100 shadow-md flex items-center gap-2">
+                <label className="font-medium">Focus on player :</label>
+                <input
+                    type="text"
+                    placeholder="Nom du joueur"
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                            focusOnNodeWithName(e.target.value);
+                            e.target.value = '';
+                        }
+                    }}
+                    className="border px-2 py-1 rounded flex-1"
+                />
+            </div>
             <div className="flex-1">
                 <ForceGraph3D
                     ref={fgRef}
                     graphData={graphData}
-                    nodeColor={node => hoveredNode === node ? "#0f0" : highlightedNodes.has(node) ? "#f00" : "#00f"}
+                    nodeColor={node => hoveredNode === node ? "#5f5" : highlightedNodes.has(node) ? "#f55" : "#fff"}
                     nodeThreeObjectExtend={true}
                     nodeThreeObject={node => {
                         const sprite = new SpriteText(node.name);
-                        sprite.color = hoveredNode === node ? "#0f0" : highlightedNodes.has(node) ? "#ff0000" : "#00f";
+                        sprite.color = hoveredNode === node ? "#5f5" : highlightedNodes.has(node) ? "#f55" : "#fff";
                         sprite.textHeight = 8;
                         sprite.center.y = -0.6; // shift above node
                         return sprite;
@@ -145,7 +140,20 @@ export default function TopPlaysGraph3D() {
                     linkWidth={link => highlightedLinks.has(link) ? 5 : 1}
                     linkColor={link => highlightedLinks.has(link) ? "#f00" : "#888"}
                     onNodeClick={handleClick}
-                    onNodeHover={handleHover}
+                    linkThreeObjectExtend={true}
+                    linkThreeObject={link => {
+                        const sprite = new SpriteText(`${highlightedLinks.has(link) ? link.value : ""}`);
+                        sprite.color = 'lightgrey';
+                        sprite.textHeight = 5;
+                        return sprite;
+                    }}
+                    linkPositionUpdate={(sprite, { start, end }) => {
+                        const middlePos = Object.assign(...['x', 'y', 'z'].map(c => ({
+                            [c]: start[c] + (end[c] - start[c]) / 2
+                        })));
+
+                        Object.assign(sprite.position, middlePos);
+                    }}
                 />
             </div>
         </div>

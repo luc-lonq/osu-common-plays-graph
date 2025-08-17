@@ -22,15 +22,20 @@ async function getToken() {
 }
 
 async function getTopPlays(user_id, token) {
-    const res = await fetch(
-        `https://osu.ppy.sh/api/v2/users/${user_id}/scores/best?mode=osu&limit=200`,
-        { headers: { Authorization: `Bearer ${token}` } }
-    );
-    return res.json();
+    let plays = [];
+    for (let i = 0; i <= 1; i++) {
+        const res = await fetch(
+            `https://osu.ppy.sh/api/v2/users/${user_id}/scores/best?mode=osu&limit=100&offset=${i * 100}`,
+            {headers: {Authorization: `Bearer ${token}`}}
+        );
+        const data = await res.json();
+        console.log(data);
+        plays = plays.concat(data);
+    }
+    return plays
 }
 
 async function getRanking(page, token) {
-    let cursor = null
     let ranking = [];
     for (let i = 1; i <= page; i++) {
         const res = await fetch(
