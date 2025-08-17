@@ -3,9 +3,32 @@ import ForceGraph3D from "react-force-graph-3d";
 import playersData from "./data.json";
 import SpriteText from "three-spritetext";
 
+function normalizeMods(mods) {
+    if (!mods) return [];
+    return mods
+        .filter(
+            (m) => !["NF", "CL", "HD", "SO"].includes(m)
+        )
+        .map((m) => (m === "NC" ? "DT" : m))
+        .sort();
+}
+
+function modsEqual(modsA, modsB) {
+    if (modsA.length !== modsB.length) return false;
+    return modsA.every((m, i) => m === modsB[i]);
+}
+
 function countCommonPlays(a, b) {
-    const setA = new Set(a.map((play) => play.id));
-    return b.filter((play) => setA.has(play.id)).length;
+    return a.filter((playA) =>
+        b.some(
+            (playB) =>
+                playA.id === playB.id &&
+                modsEqual(
+                    normalizeMods(playA.mods || []),
+                    normalizeMods(playB.mods || [])
+                )
+        )
+    ).length;
 }
 
 export default function TopPlaysGraph3D() {

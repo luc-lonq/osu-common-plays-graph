@@ -60,7 +60,8 @@ async function main() {
                     id: p.beatmap.id,
                     title: p.beatmapset.title,
                     version: p.beatmap.version,
-                    pp: p.pp
+                    pp: p.pp,
+                    mods: p.mods,
                 }))
             });
         }
