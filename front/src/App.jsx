@@ -1,7 +1,7 @@
 import React, {useState, useMemo, useCallback, useRef, useEffect} from "react";
 import ForceGraph3D from "react-force-graph-3d";
 import SpriteText from "three-spritetext";
-import {updateData, getPlays, getPlayers} from "./services/ApiService.js";
+import {updateData, getPlays, getPlayers, addPlayer} from "./services/ApiService.js";
 
 function normalizeMods(mods) {
     if (!mods || !Array.isArray(mods)) return [];
@@ -35,27 +35,27 @@ export default function TopPlaysGraph3D() {
     const [highlightedLinks, setHighlightedLinks] = useState(new Set());
     const [playersData, setPlayersData] = useState([]);
 
-    useEffect(() => {
-        async function fetchData() {
-            const loadedPlayers = await getPlayers();
-            const loadedPlays = await getPlays();
+    async function fetchData() {
+        const loadedPlayers = await getPlayers();
+        const loadedPlays = await getPlays();
 
-            const playsByPlayer = {};
-            for (const play of loadedPlays) {
-                if (!playsByPlayer[play.player_id]) {
-                    playsByPlayer[play.player_id] = [];
-                }
-                playsByPlayer[play.player_id].push(play);
+        const playsByPlayer = {};
+        for (const play of loadedPlays) {
+            if (!playsByPlayer[play.player_id]) {
+                playsByPlayer[play.player_id] = [];
             }
-
-            const enrichedPlayers = loadedPlayers.map((p) => ({
-                ...p,
-                topPlays: playsByPlayer[p.id] || [],
-            }));
-
-            setPlayersData(enrichedPlayers);
+            playsByPlayer[play.player_id].push(play);
         }
 
+        const enrichedPlayers = loadedPlayers.map((p) => ({
+            ...p,
+            topPlays: playsByPlayer[p.id] || [],
+        }));
+
+        setPlayersData(enrichedPlayers);
+    }
+
+    useEffect(() => {
         fetchData();
     }, []);
 
@@ -101,7 +101,6 @@ export default function TopPlaysGraph3D() {
             a.links.push(link);
             b.links.push(link);
         });
-
         return gData;
     }, [playersData, minCommon]);
 
@@ -222,15 +221,20 @@ export default function TopPlaysGraph3D() {
                     onNodeClick={handleClick}
                     linkThreeObjectExtend={true}
                     linkThreeObject={link => {
+                        if (!highlightedLinks.has(link)) return null;
                         const sprite = new SpriteText(`${highlightedLinks.has(link) ? link.value : ""}`);
                         sprite.color = 'lightgrey';
                         sprite.textHeight = 5;
                         return sprite;
                     }}
                     linkPositionUpdate={(sprite, { start, end }) => {
-                        const middlePos = Object.assign(...['x', 'y', 'z'].map(c => ({
-                            [c]: start[c] + (end[c] - start[c]) / 2
-                        })));
+                        if (!sprite) return;
+
+                        const middlePos = Object.assign(
+                            ...['x', 'y', 'z'].map(c => ({
+                                [c]: start[c] + (end[c] - start[c]) / 2
+                            }))
+                        );
 
                         Object.assign(sprite.position, middlePos);
                     }}
