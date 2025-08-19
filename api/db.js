@@ -19,6 +19,7 @@ async function connectDB() {
     return connection;
 }
 
+
 async function createPlayers(players) {
     const conn = await connectDB();
     const query = `
@@ -41,6 +42,7 @@ async function createPlayers(players) {
 
     await conn.query(query);
 }
+
 
 async function createPlays(plays) {
     const conn = await connectDB();
@@ -68,11 +70,13 @@ async function createPlays(plays) {
     }
 }
 
+
 async function getPlayers() {
     const conn = await connectDB();
     const [rows] = await conn.query("SELECT * FROM players");
     return rows;
 }
+
 
 async function getPlays() {
     const conn = await connectDB();
@@ -84,4 +88,42 @@ async function getPlays() {
     return payload;
 }
 
-export { connectDB, createPlayers, createPlays, getPlayers, getPlays };
+
+async function getPlayerById(id) {
+    const conn = await connectDB();
+    const [rows] = await conn.query("SELECT * FROM players WHERE id = ?", [id]);
+    return rows[0];
+}
+
+
+async function getPlaysByPlayerId(player_id) {
+    const conn = await connectDB();
+    const [rows] = await conn.query("SELECT * FROM plays WHERE player_id = ?", [player_id]);
+    const payload = rows.map(r => ({
+        ...r,
+        mods: (() => { try { return JSON.parse(r.mods ?? "[]"); } catch { return []; } })()
+    }));
+    return payload;
+}
+
+
+async function createPlayer(player) {
+    const conn = await connectDB();
+    const query = `
+        INSERT INTO players (id, username, country, \`rank\`)
+        VALUES (?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE
+            username = VALUES(username),
+            country = VALUES(country),
+            \`rank\` = VALUES(\`rank\`);
+    `;
+    await conn.execute(query, [
+        player.id,
+        player.username,
+        player.country,
+        player.rank
+    ]);
+}
+
+
+export { connectDB, createPlayers, createPlays, getPlayers, getPlays, createPlayer, getPlayerById, getPlaysByPlayerId };

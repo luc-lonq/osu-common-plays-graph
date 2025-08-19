@@ -1,5 +1,5 @@
 import dotenv from "dotenv";
-import {createPlayers, createPlays} from "./db.js";
+import {createPlayer, createPlayers, createPlays, getPlayerById, getPlaysByPlayerId} from "./db.js";
 
 dotenv.config();
 
@@ -20,9 +20,11 @@ async function getToken() {
     return res.json();
 }
 
+
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
+
 
 async function getTopPlays(user_id, token) {
     let plays = [];
@@ -34,10 +36,11 @@ async function getTopPlays(user_id, token) {
         const data = await res.json();
         plays = plays.concat(data);
 
-        await sleep(100); // pause de 100ms
+        await sleep(100);
     }
     return plays;
 }
+
 
 async function getRanking(page, token) {
     let ranking = [];
@@ -49,11 +52,29 @@ async function getRanking(page, token) {
         const data = await res.json();
         ranking = ranking.concat(data.ranking);
 
-        await sleep(100); // pause de 100ms
+        await sleep(100);
     }
     return ranking;
 }
 
+
+async function getPlayer(user_id, token) {
+    const res = await fetch(
+        `https://osu.ppy.sh/api/v2/users/${user_id}/osu`,
+        { headers: { Authorization: `Bearer ${token}` } }
+    );
+    const data = await res.json();
+
+    await sleep(100);
+
+    return {
+        id: data.id,
+        username: data.username,
+        country: data.country_code,
+        rank: data.statistics.global_rank,
+    };
+
+}
 
 async function updateData() {
     try {
@@ -61,7 +82,7 @@ async function updateData() {
         const token = tokenData.access_token;
 
         const players = await getRanking(2, token);
-        createPlayers(players.map((p) => ({
+        await createPlayers(players.map((p) => ({
             id: p.user.id,
             username: p.user.username,
             country: p.user.country_code,
@@ -70,7 +91,7 @@ async function updateData() {
 
         for (const player of players) {
             const plays = await getTopPlays(player.user.id, token)
-            createPlays(plays.map((p) => ({
+            await createPlays(plays.map((p) => ({
                 id: p.id,
                 beatmap_id: p.beatmap.id,
                 version: p.beatmap.version,
@@ -85,4 +106,32 @@ async function updateData() {
     }
 }
 
-export { getToken, getTopPlays, getRanking, updateData };
+
+async function addPlayerData(user_id) {
+    try {
+        const tokenData = await getToken();
+        const token = tokenData.access_token;
+
+        const player = await getPlayer(user_id, token);
+        await createPlayer(player).catch(console.error);
+
+        const plays = await getTopPlays(user_id, token);
+        await createPlays(plays.map((p) => ({
+            id: p.id,
+            beatmap_id: p.beatmap.id,
+            version: p.beatmap.version,
+            title: p.beatmapset.title,
+            mods: p.mods,
+            pp: p.pp,
+            player_id: user_id
+        }))).catch(console.error);
+        const playerData = await getPlayerById(user_id);
+        const playsData = await getPlaysByPlayerId(user_id);
+
+        return { player: playerData, plays: playsData };
+    } catch (error) {
+        console.error("Error: ", error);
+    }
+}
+
+export { getToken, getTopPlays, getRanking, updateData, addPlayerData };

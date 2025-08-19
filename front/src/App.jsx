@@ -140,6 +140,27 @@ export default function TopPlaysGraph3D() {
         }
     });
 
+    const [newlyAddedPlayer, setNewlyAddedPlayer] = useState(null);
+
+    const addPlayerData = useCallback((user_id) => {
+        addPlayer(user_id).then(r => {
+            console.log("Player added:", r);
+            setPlayersData(prev => [
+                ...prev,
+                { id: r.player.id, username: r.player.username, topPlays: r.plays }
+            ]);
+            setNewlyAddedPlayer(r.player.username);
+        });
+    }, []);
+
+    useEffect(() => {
+        if (newlyAddedPlayer && playersData.length > 0) {
+            console.log("Focusing on newly added player:", newlyAddedPlayer);
+            focusOnNodeWithName(newlyAddedPlayer);
+            setNewlyAddedPlayer(null);
+        }
+    }, [graphData]);
+
     return (
         <div className="w-full h-screen flex flex-col">
             <div className="p-2 bg-gray-100 shadow-md flex items-center gap-2">
@@ -168,6 +189,20 @@ export default function TopPlaysGraph3D() {
             </div>
             <div className="p-2 bg-gray-100 shadow-md flex items-center gap-2">
                 <button className="px-2 py-1 rounded" onClick={updateData}>Update Data</button>
+            </div>
+            <div className="p-2 bg-gray-100 shadow-md flex items-center gap-2">
+                <label className="font-medium">Add player :</label>
+                <input
+                    type="text"
+                    placeholder="Nom du joueur"
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                            addPlayerData(e.target.value);
+                            e.target.value = '';
+                        }
+                    }}
+                    className="border px-2 py-1 rounded flex-1"
+                />
             </div>
             <div>
                 <ForceGraph3D
