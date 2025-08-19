@@ -1,12 +1,31 @@
-import React, {useState, useMemo, useCallback, useRef} from "react";
+import React, {useState, useMemo, useCallback, useRef, useEffect} from "react";
 import ForceGraph3D from "react-force-graph-3d";
-import playersData from "./data.json";
 import SpriteText from "three-spritetext";
+import {updateData, getPlays, getPlayers} from "./services/ApiService.js";
 
+function normalizeMods(mods) {
+    if (!mods || !Array.isArray(mods)) return [];
+    return mods
+        .filter(m => !["NF", "HD", "CL", "SO"].includes(m))
+        .map(m => (m === "NC" ? "DT" : m))
+        .sort();
+}
+
+function modsEqual(modsA, modsB) {
+    if (modsA.length !== modsB.length) return false;
+    return modsA.every((m, i) => m === modsB[i]);
+}
 
 function countCommonPlays(a, b) {
-    const setA = new Set(a.map((play) => play.id));
-    return b.filter((play) => setA.has(play.id)).length;
+    return a.filter(playA =>
+        b.some(playB =>
+            playA.beatmap_id === playB.beatmap_id &&
+            modsEqual(
+                normalizeMods(playA.mods),
+                normalizeMods(playB.mods)
+            )
+        )
+    ).length;
 }
 
 export default function TopPlaysGraph3D() {
@@ -14,9 +33,34 @@ export default function TopPlaysGraph3D() {
     const [hoveredNode, setHoveredNode] = useState(null);
     const [highlightedNodes, setHighlightedNodes] = useState(new Set());
     const [highlightedLinks, setHighlightedLinks] = useState(new Set());
+    const [playersData, setPlayersData] = useState([]);
+
+    useEffect(() => {
+        async function fetchData() {
+            const loadedPlayers = await getPlayers();
+            const loadedPlays = await getPlays();
+
+            const playsByPlayer = {};
+            for (const play of loadedPlays) {
+                if (!playsByPlayer[play.player_id]) {
+                    playsByPlayer[play.player_id] = [];
+                }
+                playsByPlayer[play.player_id].push(play);
+            }
+
+            const enrichedPlayers = loadedPlayers.map((p) => ({
+                ...p,
+                topPlays: playsByPlayer[p.id] || [],
+            }));
+
+            setPlayersData(enrichedPlayers);
+        }
+
+        fetchData();
+    }, []);
 
     const graphData = useMemo(() => {
-        const nodes = playersData.map((p) => ({
+        const nodes = playersData.map(p => ({
             id: p.id,
             name: p.username,
         }));
@@ -45,7 +89,7 @@ export default function TopPlaysGraph3D() {
         gData.links.forEach((link) => {
             const a = nodeById[link.source];
             const b = nodeById[link.target];
-            if (!a || !b) return; // sécurité
+            if (!a || !b) return;
 
             !a.neighbors && (a.neighbors = []);
             !b.neighbors && (b.neighbors = []);
@@ -58,10 +102,8 @@ export default function TopPlaysGraph3D() {
             b.links.push(link);
         });
 
-        console.log(gData);
-
         return gData;
-    }, [minCommon]);
+    }, [playersData, minCommon]);
 
     const fgRef = useRef();
 
@@ -81,11 +123,11 @@ export default function TopPlaysGraph3D() {
             }
         }
 
-        const distance = 200;
+        const distance = 400;
         const distRatio = 1 + distance/Math.hypot(node.x, node.y, node.z);
 
         fgRef.current.cameraPosition(
-            { x: node.x * distRatio, y: node.y * distRatio, z: node.z * distRatio }, // new position
+            { x: node.x * distRatio, y: node.y * distRatio, z: node.z * distRatio },
             node,
             3000
         );
@@ -124,7 +166,10 @@ export default function TopPlaysGraph3D() {
                     className="border px-2 py-1 rounded flex-1"
                 />
             </div>
-            <div className="flex-1">
+            <div className="p-2 bg-gray-100 shadow-md flex items-center gap-2">
+                <button className="px-2 py-1 rounded" onClick={updateData}>Update Data</button>
+            </div>
+            <div>
                 <ForceGraph3D
                     ref={fgRef}
                     graphData={graphData}
@@ -133,11 +178,11 @@ export default function TopPlaysGraph3D() {
                     nodeThreeObject={node => {
                         const sprite = new SpriteText(node.name);
                         sprite.color = hoveredNode === node ? "#5f5" : highlightedNodes.has(node) ? "#f55" : "#fff";
-                        sprite.textHeight = 8;
-                        sprite.center.y = -0.6; // shift above node
+                        sprite.textHeight = (hoveredNode === node || highlightedNodes.has(node)) ? 8 : 4;
+                        sprite.center.y = (hoveredNode === node || highlightedNodes.has(node)) ? -0.6 : -1.2;
                         return sprite;
                     }}
-                    linkWidth={link => highlightedLinks.has(link) ? 5 : 1}
+                    linkWidth={link => highlightedLinks.has(link) ? 3 : 1}
                     linkColor={link => highlightedLinks.has(link) ? "#f00" : "#888"}
                     onNodeClick={handleClick}
                     linkThreeObjectExtend={true}
